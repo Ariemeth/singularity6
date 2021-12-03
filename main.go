@@ -2,19 +2,33 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
+	"github.com/ReneKroon/ttlcache/v2"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
+var cache ttlcache.SimpleCache = ttlcache.NewCache()
+
 func main() {
 	log.Println("Initializing service")
+
+	rand.Seed(time.Now().UnixNano())
+	// set TTL on shorteners to 24 hours
+	cache.SetTTL(time.Duration(24 * time.Hour))
+
 	r := mux.NewRouter()
-	r.HandleFunc("/", rootHandler)
+	r.HandleFunc("/", shortenHandler).Methods("POST")
+	r.HandleFunc("/{shortendURL}", redirectHandler).Methods("GET")
 	r.HandleFunc("/healthz", healthHandler).Methods("GET")
 
 	http.Handle("/", r)
@@ -61,4 +75,49 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("healthy and running"))
+}
+
+type shortenRequest struct {
+	URL string `json:"url"`
+}
+
+func shortenHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	var sr shortenRequest
+	if err := decoder.Decode(&sr); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Bad request: body does not contain url"))
+	}
+	key := createKey()
+	err := cache.Set(key, sr.URL)
+	if err != nil {
+		log.Panicln(err)
+	}
+	w.Write([]byte(key))
+}
+
+func redirectHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	shortend := vars["shortendURL"]
+	if shortend == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Bad request: no shortened url present"))
+		return
+	}
+
+	log.Println(shortend)
+
+	fullURL, err := cache.Get(shortend)
+	if err == ttlcache.ErrNotFound || fullURL == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Bad request: no url found for this shortner %s", fullURL)))
+		return
+	}
+
+	log.Printf("Redirecting to %s\n", fullURL)
+	http.Redirect(w, r, fmt.Sprintf("%s", fullURL), http.StatusMovedPermanently)
+}
+
+func createKey() string {
+	return strings.Replace(uuid.New().String(), "-", "", -1)
 }
