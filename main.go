@@ -22,8 +22,8 @@ var (
 const (
 	letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	// should prove 2^52 possible short urls
-	maxShortCharacters = 8
-	shortenedURLParamName="shortendURL"
+	maxShortCharacters    = 8
+	shortenedURLParamName = "shortendURL"
 )
 
 func main() {
@@ -133,5 +133,10 @@ func createKey() string {
 	for i := range b {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
-	return string(b)
+	k := string(b)
+
+	if _, err := cache.Get(k); err != ttlcache.ErrNotFound {
+		k = createKey()
+	}
+	return k
 }
