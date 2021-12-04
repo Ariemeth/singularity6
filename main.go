@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,14 +21,13 @@ var cache ttlcache.SimpleCache = ttlcache.NewCache()
 func main() {
 	log.Println("Initializing service")
 
-	rand.Seed(time.Now().UnixNano())
 	// set TTL on shorteners to 24 hours
 	cache.SetTTL(time.Duration(24 * time.Hour))
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", shortenHandler).Methods("POST")
+	r.HandleFunc("/healthz", healthHandler).Methods("POST")
 	r.HandleFunc("/{shortendURL}", redirectHandler).Methods("GET")
-	r.HandleFunc("/healthz", healthHandler).Methods("GET")
 
 	http.Handle("/", r)
 
@@ -69,10 +67,6 @@ func main() {
 	os.Exit(0)
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("hi"))
-}
-
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("healthy and running"))
 }
@@ -83,7 +77,7 @@ type shortenRequest struct {
 
 type shortenResponse struct {
 	Shortened string `json:"short_url_code"`
-	URL string `json:"url"`
+	URL       string `json:"url"`
 }
 
 func shortenHandler(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +93,7 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 		log.Panicln(err)
 	}
 
-	resp:= shortenResponse{Shortened: key, URL: sr.URL}
+	resp := shortenResponse{Shortened: fmt.Sprintf("/%s", key), URL: sr.URL}
 	json.NewEncoder(w).Encode(resp)
 }
 
