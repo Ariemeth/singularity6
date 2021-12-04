@@ -11,3 +11,7 @@ After building the application to run the serer `./singularity6`
 
 ## To use the url
 `curl localhost:9000/abc123`
+
+## Health
+To check if the service is running the health endpoint can be checked
+`curl localhost:9000/healthz -X POST`
