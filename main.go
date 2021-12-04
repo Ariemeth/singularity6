@@ -5,21 +5,30 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"time"
 
 	"github.com/ReneKroon/ttlcache/v2"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
-var cache ttlcache.SimpleCache = ttlcache.NewCache()
+var (
+	cache ttlcache.SimpleCache = ttlcache.NewCache()
+)
+
+const (
+	letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	// should prove 2^52 possible short urls
+	maxShortCharacters = 8
+)
 
 func main() {
 	log.Println("Initializing service")
+
+	rand.Seed(time.Now().UnixNano())
 
 	// set TTL on shorteners to 24 hours
 	cache.SetTTL(time.Duration(24 * time.Hour))
@@ -120,5 +129,9 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func createKey() string {
-	return strings.Replace(uuid.New().String(), "-", "", -1)
+	b := make([]byte, maxShortCharacters)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
 }
