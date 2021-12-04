@@ -81,6 +81,11 @@ type shortenRequest struct {
 	URL string `json:"url"`
 }
 
+type shortenResponse struct {
+	Shortened string `json:"short_url_code"`
+	URL string `json:"url"`
+}
+
 func shortenHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var sr shortenRequest
@@ -93,7 +98,9 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Panicln(err)
 	}
-	w.Write([]byte(key))
+
+	resp:= shortenResponse{Shortened: key, URL: sr.URL}
+	json.NewEncoder(w).Encode(resp)
 }
 
 func redirectHandler(w http.ResponseWriter, r *http.Request) {
