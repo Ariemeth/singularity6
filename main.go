@@ -23,6 +23,7 @@ const (
 	letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	// should prove 2^52 possible short urls
 	maxShortCharacters = 8
+	shortenedURLParamName="shortendURL"
 )
 
 func main() {
@@ -96,10 +97,11 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Bad request: body does not contain url"))
 	}
+
 	key := createKey()
 	err := cache.Set(key, sr.URL)
 	if err != nil {
-		log.Panicln(err)
+		log.Println(err)
 	}
 
 	resp := shortenResponse{Shortened: fmt.Sprintf("/%s", key), URL: sr.URL}
@@ -108,14 +110,12 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 
 func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	shortend := vars["shortendURL"]
+	shortend := vars[shortenedURLParamName]
 	if shortend == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Bad request: no shortened url present"))
 		return
 	}
-
-	log.Println(shortend)
 
 	fullURL, err := cache.Get(shortend)
 	if err == ttlcache.ErrNotFound || fullURL == nil {
